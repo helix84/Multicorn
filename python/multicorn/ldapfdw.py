@@ -150,21 +150,28 @@ class LdapFdw(ForeignDataWrapper):
                     val = qual.value
                 request = unicode_("(&%s(%s=%s))") % (
                     request, qual.field_name, val)
-        self.ldap.search(
-            self.path, request, self.scope,
-            attributes=list(self.field_definitions))
-        for entry in self.ldap.response:
-            # Case insensitive lookup for the attributes
-            litem = dict()
-            for key, value in entry["attributes"].items():
-                if key.lower() in self.field_definitions:
-                    pgcolname = self.field_definitions[key.lower()].column_name
-                    if pgcolname in self.array_columns:
-                        value = value
-                    else:
-                        value = value[0]
-                    litem[pgcolname] = value
-            yield litem
+        cookie = None
+        while True:
+            self.ldap.search(
+                self.path, request, self.scope,
+                attributes=list(self.field_definitions),
+                paged_size = 1000,
+                paged_cookie = cookie)
+            for entry in self.ldap.response:
+                # Case insensitive lookup for the attributes
+                litem = dict()
+                for key, value in entry["attributes"].items():
+                    if key.lower() in self.field_definitions:
+                        pgcolname = self.field_definitions[key.lower()].column_name
+                        if pgcolname in self.array_columns:
+                            value = value
+                        else:
+                            value = value[0]
+                        litem[pgcolname] = value
+                yield litem
+            cookie = self.ldap.result['controls']['1.2.840.113556.1.4.319']['value']['cookie']
+            if not cookie:
+                break
 
     def parse_scope(self, scope=None):
         if scope in (None, "", "one"):
