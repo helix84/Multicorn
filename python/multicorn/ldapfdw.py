@@ -169,6 +169,7 @@ class LdapFdw(ForeignDataWrapper):
                             value = value[0]
                         litem[pgcolname] = value
                 yield litem
+            # pagedResultsControl, see RFC 2696
             cookie = self.ldap.result['controls']['1.2.840.113556.1.4.319']['value']['cookie']
             if not cookie:
                 break
